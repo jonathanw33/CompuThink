@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Maze Generator and Solver</title>
+    <style>
+        body {
+            font-family: "Montserrat", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+
+        /* Back Button Styles */
+        .back-button {
+            position: absolute; /* Position it absolutely */
+            top: 20px; /* Distance from the top */
+            left: 20px; /* Distance from the left */
+            padding: 10px 20px; /* Padding for the button */
+            background-color: #622eab; /* Button color */
+            color: white; /* Text color */
+            text-decoration: none; /* Remove underline */
+            border-radius: 5px; /* Rounded corners */
+            transition: background-color 0.3s ease; /* Smooth transition */
+        }
+
+        .back-button:hover {
+            background-color: #5b6eae; /* Darker color on hover */
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #622eab; /* Primary button color */
+            color: var(--putih);
+            text-decoration: none;
+            font-size: 18px;
+            border-radius: 5px;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+        
+        /* Hover Effect */
+        button:hover {
+            background-color: #5b6eae; /* Adjust hover color as needed */
+            transform: scale(1.05);
+        }
+
+        input, select {
+            padding: 8px;
+            font-size: 16px;
+            margin: 0 5px;
+        }
+
+        input {
+            width: 60px;
+        }
+
+        select {
+            width: 200px;
+        }
+
+        #status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            min-width: 200px;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            background-color: white;
+        }
+
+        .size-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        .algorithm-info {
+            margin: 10px 0;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 4px;
+            max-width: 600px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Back Button -->
+    <a href="homepage.html" class="back-button">Back</a>
+
+    <div class="size-controls">
+        <label for="rows">Rows:</label>
+        <input type="number" id="rows" value="15" min="5" max="50">
+        <label for="cols">Columns:</label>
+        <input type="number" id="cols" value="15" min="5" max="50">
+    </div>
+    <div class="controls">
+        <button onclick="generateNewMaze()">Generate New Maze</button>
+        <select id="algorithm">
+            <option value="dfs">Depth-First Search (DFS)</option>
+            <option value="bfs">Breadth-First Search (BFS)</option>
+        </select>
+        <button onclick="solveMaze()">Solve Maze</button>
+    </div>
+    <div class="algorithm-info" id="algorithmInfo"></div>
+    <div id="status"></div>
+    <canvas id="mazeCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('mazeCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusDiv = document.getElementById('status');
+        const algorithmInfo = document.getElementById('algorithmInfo');
+        let maze = [];
+        let cellSize = 20;
+        let solving = false;
+
+        const algorithmDescriptions = {
+            dfs: "Depth-First Search (DFS) explores as far as possible along each branch before backtracking. It's like exploring a maze by always following the current path until you hit a dead end, then backtracking to the last intersection. DFS might not find the shortest path, but it's memory-efficient.",
+            bfs: "Breadth-First Search (BFS) explores all neighbor cells before moving to the next level. It's like a flood filling the maze, spreading out in all directions equally. BFS guarantees the shortest path in terms of the number of steps.",
+        };
+
+        // Initialize the maze with a padded border
+        function initMaze(rows, cols) {
+            // Add 2 to rows and cols to account for the border
+            maze = Array(rows + 2).fill().map(() => Array(cols + 2).fill(1));
+            canvas.width = (cols + 2) * cellSize;
+            canvas.height = (rows + 2) * cellSize;
+        }
+
+        // Generate maze using Recursive Backtracking
+        async function generateMaze(row, col) {
+            const directions = [
+                [0, 2],  // right
+                [2, 0],  // down
+                [0, -2], // left
+                [-2, 0]  // up
+            ];
+            
+            maze[row][col] = 0;
+            
+            // Shuffle directions
+            directions.sort(() => Math.random() - 0.5);
+            
+            for (let [dx, dy] of directions) {
+                const newRow = row + dx;
+                const newCol = col + dy;
+                
+                if (newRow >= 1 && newRow < maze.length - 1 && 
+                    newCol >= 1 && newCol < maze[0].length - 1 && 
+                    maze[newRow][newCol] === 1) {
+                    
+                    maze[row + dx/2][col + dy/2] = 0;
+                    maze[newRow][newCol] = 0;
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                    drawMaze();
+                    await generateMaze(newRow, newCol);
+                }
+            }
+        }
+
+        // Draw the maze
+        function drawMaze(currentPath = [], visited = new Set()) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw base maze
+            for (let row = 0; row < maze.length; row++) {
+                for (let col = 0; col < maze[0].length; col++) {
+                    ctx.fillStyle = maze[row][col] === 1 ? '#000' : '#fff';
+                    ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+                }
+            }
+
+            // Draw visited cells
+            ctx.fillStyle = '#ff000040';
+            for (let pos of visited) {
+                const [row, col] = pos.split(',').map(Number);
+                ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+            }
+
+            // Draw current path
+            ctx.fillStyle = '#00ff0080';
+            for (let [row, col] of currentPath) {
+                ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+            }
+        }
+
+        // Helper function for A* heuristic
+        function heuristic(row, col, endRow, endCol) {
+            return Math.abs(row - endRow) + Math.abs(col - endCol);
+        }
+
+        // Generate new maze
+        async function generateNewMaze() {
+            if (solving) return;
+            
+            const rows = parseInt(document.getElementById('rows').value);
+            const cols = parseInt(document.getElementById('cols').value);
+            
+            if (rows < 5 || rows > 50 || cols < 5 || cols > 50) {
+                statusDiv.textContent = 'Please enter valid dimensions (5-50)';
+                return;
+            }
+
+            statusDiv.textContent = 'Generating maze...';
+            initMaze(rows, cols);
+            
+            // Start from (1,1) to account for border
+            await generateMaze(1, 1);
+            
+            // Ensure start and end points are open
+            maze[1][1] = 0; // Start point (top-left)
+            maze[rows][cols] = 0; // End point (bottom-right)
+            
+            // Create path to exit
+            maze[rows][cols-1] = 0; // Open cell before end
+            maze[rows-1][cols] = 0; // Open cell above end
+            
+            drawMaze();
+            statusDiv.textContent = 'Maze generated!';
+        }
+
+        // Modified solver functions to account for border
+        async function dfs(row, col, visited, path) {
+            const endRow = maze.length - 2;
+            const endCol = maze[0].length - 2;
+
+            if (row < 1 || row > endRow || col < 1 || col > endCol ||
+                maze[row][col] === 1 || visited.has(`${row},${col}`)) {
+                return false;
+            }
+
+            visited.add(`${row},${col}`);
+            path.push([row, col]);
+
+            if (row === endRow && col === endCol) {
+                return true;
+            }
+
+            const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+            
+            for (let [dx, dy] of directions) {
+                const newRow = row + dx;
+                const newCol = col + dy;
+
+                await new Promise(resolve => setTimeout(resolve, 10));
+                drawMaze(path, visited);
+
+                if (await dfs(newRow, newCol, visited, path)) {
+                    return true;
+                }
+            }
+
+            path.pop();
+            return false;
+        }
+
+        async function bfs(startRow, startCol) {
+            const endRow = maze.length - 2;
+            const endCol = maze[0].length - 2;
+            const queue = [[startRow, startCol, [[startRow, startCol]]]];
+            const visited = new Set([`${startRow},${startCol}`]);
+            const directions = [[0, 1], [1, 0], [0, -1], [-1, 0]];
+
+            while (queue.length > 0) {
+                const [row, col, path] = queue.shift();
+
+                if (row === endRow && col === endCol) {
+                    return path;
+                }
+
+                for (let [dx, dy] of directions) {
+                    const newRow = row + dx;
+                    const newCol = col + dy;
+                    const newPos = `${newRow},${newCol}`;
+
+                    if (newRow >= 1 && newRow <= endRow && 
+                        newCol >= 1 && newCol <= endCol && 
+                        maze[newRow][newCol] === 0 && 
+                        !visited.has(newPos)) {
+                        
+                        visited.add(newPos);
+                        const newPath = [...path, [newRow, newCol]];
+                        queue.push([newRow, newCol, newPath]);
+
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                        drawMaze(path, visited);
+                    }
+                }
+            }
+            return null;
+        }
+
+
+
+        // Solve the maze
+        async function solveMaze() {
+            if (solving || !maze.length) return;
+            
+            solving = true;
+            const algorithm = document.getElementById('algorithm').value;
+            statusDiv.textContent = 'Solving maze...';
+            
+            let path = null;
+            
+            switch (algorithm) {
+                case 'dfs':
+                    const visited = new Set();
+                    path = [];
+                    if (await dfs(1, 1, visited, path)) {
+                        drawMaze(path, visited);
+                    }
+                    break;
+                case 'bfs':
+                    path = await bfs(1, 1);
+                    if (path) {
+                        drawMaze(path, new Set());
+                    }
+                    break;
+            }
+            
+            statusDiv.textContent = path ? 'Maze solved!' : 'No solution found!';
+            solving = false;
+        }
+
+        // Update algorithm description
+        document.getElementById('algorithm').addEventListener('change', function(e) {
+            algorithmInfo.textContent = algorithmDescriptions[e.target.value];
+        });
+
+        // Initial setup
+        generateNewMaze();
+        algorithmInfo.textContent = algorithmDescriptions.dfs;
+    </script>
+    
+</body>
+</html>
